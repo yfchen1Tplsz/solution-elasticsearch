@@ -1,0 +1,9 @@
+spring:
+  elasticsearch:
+    uris:
+      - http://127.0.0.1:9200
+    username: elastic
+    password: tFb3sWrrySC0tu0aCJUj
+
+# username default: elastic
+# password default: docker exec -it es8 /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic
