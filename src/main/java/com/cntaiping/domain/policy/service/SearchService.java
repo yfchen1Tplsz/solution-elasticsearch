@@ -1,5 +1,8 @@
 package com.cntaiping.domain.policy.service;
 
+import co.elastic.clients.elasticsearch._types.GeoDistanceType;
+import co.elastic.clients.elasticsearch._types.TopLeftBottomRightGeoBounds;
+import co.elastic.clients.elasticsearch._types.query_dsl.FunctionScoreBuilders;
 import co.elastic.clients.json.JsonData;
 import com.cntaiping.domain.policy.entity.PolicyEntity;
 import com.cntaiping.domain.policy.mapper.PolicyMapper;
@@ -8,32 +11,39 @@ import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.QueryBuilders;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.Criteria;
-import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
-import org.springframework.data.elasticsearch.core.query.Query;
+import org.springframework.data.elasticsearch.core.geo.GeoPoint;
+import org.springframework.data.elasticsearch.core.query.*;
+import org.springframework.data.elasticsearch.core.script.Script;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
  * @author tplhk-yfchen1
  * @apiNote The following service will demonstrate how to use ElasticsearchOperations (specifically DocumentOperations) for searching documents.
  *  It will also illustrate how to leverage spring-data-elasticsearch to simplify coding.
+ * @implNote  提示：下面的案例中springdata使用的repository返回值都是List<Entity>,实际上也可以是SearchHits<Entity>,为了方便展示数据使用了List以避免解析
  *
- */
+ * */
+
+
 @Service
 public class SearchService {
 /*
     as spring-doc says:
        --- " Query is an interface and Spring Data Elasticsearch provides three implementations: CriteriaQuery, StringQuery and NativeQuery."
 */
+
+
 
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
@@ -96,21 +106,22 @@ public class SearchService {
         return searchHits.getSearchHits().stream().map(hit -> hit.getContent()).collect(Collectors.toList());
     }
 
-    // 多字段全文检索： multi_match by SpringDataEs
+    // 多字段全文检索： multi_match by SpringDataEs 做不到的因为是根据方法名
     public List<PolicyEntity> multiMatchSearchByRepository(List<String> fields, String searchValue) {
-        return policyRepository.findByProductNameIn(searchValue);
+        return null;
     }
 
     // 精确值检索: term by SearchOperations
     public List<PolicyEntity> termSearchByOperations(String fieldStr, String searchValue){
-/*        Query nativeQuery = NativeQuery.builder()    //仅仅对于string类型search，每个类型要用不同的query
+        Query nativeQuery = NativeQuery.builder()    //仅仅对于string类型search，每个类型要用不同的query
                 .withQuery(k->k
                         .term(t->t
                                 .field(fieldStr)
                                 .value(searchValue)
                         )
                 )
-                .build();*/
+                .build();
+
         Query criteriaQuery = new CriteriaQuery(     //可以用于不同类型得到查询
                 new Criteria(fieldStr).is(searchValue)
         );
@@ -122,12 +133,12 @@ public class SearchService {
 
     // 精确值检索: term by SpringDataEs
     public List<PolicyEntity> termSearchByRepository(String searchValue) {
-        return policyRepository.findByPolicyNo(searchValue);     //对于springdata而言根据方法名创建的dsl使用的是"query_string"，当搜索字段为text时是match搜索，但若字段为term则是精确值term查询
+        return policyRepository.findByPolicyStatus(searchValue);     //对于springdata而言根据方法名创建的dsl使用的是"query_string"，当搜索字段为text时是match搜索，但若字段为term则是精确值term查询
     }
 
     // 范围值检索: range by SearchOperations
-    public List<PolicyEntity> rangeSearchByOperations(String fieldStr, BigDecimal min, BigDecimal max){
-/*        Query nativeQuery = NativeQuery.builder()
+    public List<PolicyEntity> rangeSearchByOperations(String fieldStr, Double min, Double max){
+        Query nativeQuery = NativeQuery.builder()
                .withQuery(q->q
                        .range(r->r
                                .field(fieldStr)
@@ -135,7 +146,8 @@ public class SearchService {
                                .lte(JsonData.of(max))
                         )
                 )
-               .build();*/
+               .build();
+
         Query criteriaQuery = new CriteriaQuery(new Criteria(fieldStr).lessThanEqual(max).greaterThan(min));
         SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(criteriaQuery, PolicyEntity.class);
         //解析：
@@ -143,16 +155,124 @@ public class SearchService {
     }
 
     // 范围值检索: range by SpringDataEs
-    public List<PolicyEntity> rangeSearchByRepository(BigDecimal min, BigDecimal max) {
+    public List<PolicyEntity> rangeSearchByRepository(Double min, Double max) {
         //自定义两端
-        policyRepository.findByPolicyAmountLessThanAndPolicyAmountGearterThanEqual(min,max);  //左闭右开
+        policyRepository.findByPolicyAmountLessThanAndPolicyAmountGreaterThanEqual(min,max);  //左闭右开
         //时间可以用Before和After
         return policyRepository.findByPolicyAmountBetween(min, max);  //两边都含
 
     }
 
-
     //地理位置检索 geo_bounding_box by SearchOperation
-    //TODO geo
+    public List<PolicyEntity> geoBoundingBoxSearchByOperations(String fieldStr,Double topLeftLat,Double topLeftLon,Double bottomRightLat,Double bottomRightLon){
+        TopLeftBottomRightGeoBounds geoBounds = TopLeftBottomRightGeoBounds.of(builder ->
+                builder.topLeft(tf->tf
+                                .latlon(ll->ll
+                                        .lat(topLeftLat)
+                                        .lon(topLeftLon)
+                                )
+                        )
+                        .bottomRight(br->br
+                                .latlon(ll->ll
+                                        .lat(bottomRightLat)
+                                        .lon(bottomRightLon)
+                                )
+                        )
+        );
+        Query nativeQuery = NativeQuery.builder()
+              .withQuery(q->q
+                      .geoBoundingBox(r->r
+                              .field(fieldStr)
+                              .boundingBox(b->b
+                                      .tlbr(geoBounds)
+                              )
+                        )
+                )
+              .build();
+        SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(nativeQuery, PolicyEntity.class);
+        //解析：
+        return searchHits.getSearchHits().stream().map(hit -> hit.getContent()).collect(Collectors.toList());
+    }
+
+//    // 地理位置检索 geo_bounding_box by SpringDataEs //暂时无法实现功能
+//    public List<PolicyEntity> geoBoundingBoxSearchByRepository(Double topLeftLat,Double topLeftLon,Double bottomRightLat,Double bottomRightLon) {
+//        GeoPoint gpLeftTop = new GeoPoint(topLeftLat, topLeftLon);
+//        GeoPoint gpBottomRight =  new GeoPoint(bottomRightLat, bottomRightLon);
+//        return policyRepository.findByLocationWithinLocation(gpLeftTop, gpBottomRight);
+//    }
+
+    // 地理距离检索 geo_distance by Operations
+    public List<PolicyEntity> geoDistanceSearchByOperations(String fieldStr,Double lat,Double lon,String distance){
+        Query query = NativeQuery.builder()
+                .withQuery(q->q
+                        .geoDistance(g->g
+                                .field(fieldStr)
+                                .location(l->l
+                                        .latlon(ll->ll
+                                                .lat(lat)
+                                                .lon(lon)
+                                        )
+                                )
+                                .distance(distance)
+
+                        )
+                )
+                .build();
+        SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(query, PolicyEntity.class);
+        //解析
+        return searchHits.getSearchHits().stream().map(hit -> hit.getContent()).collect(Collectors.toList());
+    }
+
+    // 地理距离检索 geo_distance by Repository
+    //自定义方法名的方式暂时不支持geo_distance查询，如果仍然想用repository实现，可以用@query来做原生查询，下面是案例
+    public List<PolicyEntity> geoDistanceSearchByRepository(Double lat,Double lon,String distance){
+        return policyRepository.findByLocationDistance(lat,lon,distance);
+    }
+
+    // 相关性算分修正 functions by Operations,下面将演示如何使用operations创建一个模板，然后使用它，这有些类似pg存储过程
+    public List<SearchHit<PolicyEntity>> functionsScoreByOperations(String productName,String policyStatus){
+        elasticsearchOperations.putScript(
+                Script.builder()
+                        .withId("functionScore")
+                        .withLanguage("mustache")
+                        .withSource("""
+                                {
+                                     "query": {
+                                       "function_score": {
+                                         "query": {
+                                           "match": {
+                                             "productName": "{{productName}}"
+                                           }
+                                         },
+                                         "functions": [
+                                           {
+                                             "filter": {
+                                               "term": {
+                                                 "policyStatus": "{{policyStatus}}"
+                                               }
+                                             },
+                                             "weight": 10
+                                           }
+                                         ],
+                                         "boost_mode": "multiply"
+                                       }
+                                     }
+                                   }
+                                """)
+                        .build()
+        );
+        var query = SearchTemplateQuery.builder()
+                .withId("functionScore")
+                .withParams(
+                        Map.of(
+                                "productName", productName,
+                                "policyStatus",policyStatus
+                        )
+                )
+                .build();
+        SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(query, PolicyEntity.class);
+        //解析
+        return searchHits.getSearchHits();
+    }
 
 }

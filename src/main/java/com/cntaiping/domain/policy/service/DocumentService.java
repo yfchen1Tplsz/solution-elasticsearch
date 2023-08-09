@@ -7,11 +7,17 @@ import com.cntaiping.infrastructure.exception.ApplicationException;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexedObjectInformation;
+import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.core.query.IndexQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 
 /**
@@ -29,7 +35,7 @@ public class DocumentService {
     private PolicyMapper policyMapper;
 
     // 是否存在文档 - by DecumentOperations
-    public boolean existsById(UUID id){
+    public boolean existsByIdByOperations(UUID id){
         return elasticsearchOperations.exists(id.toString(), PolicyEntity.class);
     }
 
@@ -104,5 +110,16 @@ public class DocumentService {
     // 获取文档 - by SpringDataEs
     public PolicyEntity getPolicyByRepository(UUID id){
         return policyRepository.findById(id).orElseThrow(()->new ApplicationException("不存在该id对应的保单实体"));
+    }
+
+    // 批量导入文档 - byDocumentOperations
+    public List<IndexedObjectInformation> batchInsertPolicyByOperations(List<PolicyEntity> policyEntities){
+        return elasticsearchOperations.bulkIndex(policyEntities.stream().map(k -> new IndexQueryBuilder().withObject(k).build()).collect(Collectors.toList()),PolicyEntity.class);
+    }
+
+    public List<PolicyEntity> batchInsertPolicyByRepository(List<PolicyEntity> policyEntities){
+        List<PolicyEntity> policies = new ArrayList<>();
+        policyRepository.saveAll(policyEntities).forEach(k->policies.add(k));
+        return policies;
     }
 }

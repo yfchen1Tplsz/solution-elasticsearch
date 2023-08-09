@@ -5,10 +5,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.elasticsearch.annotations.DateFormat;
-import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.*;
+import org.springframework.data.elasticsearch.core.geo.GeoPoint;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,6 +18,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @SuperBuilder
 @Document(indexName = "gis-policy")
+@Component
 public class PolicyEntity {
     @Id
     private UUID id;
@@ -30,15 +30,17 @@ public class PolicyEntity {
     private String productName;
     @Field(type = FieldType.Text,analyzer = "standard")
     private String policyOwnerName;
-    @Field
-    private BigDecimal policyAmount;
-    @Field
-    private BigDecimal policyPremium;
+    @Field(type = FieldType.Double)
+    private Double policyAmount;
+    @Field(type = FieldType.Double)
+    private Double policyPremium;
     @Field(type = FieldType.Date,format = {},pattern = "dd/MM/yyyy")
     private LocalDate expireDate;
     @Field(type = FieldType.Date,format = {},pattern = "dd/MM/yyyy")
     private LocalDate effectiveDate;
     @Field(type = FieldType.Text,analyzer = "standard")
     private String remark;
+    @GeoPointField
+    private GeoPoint location;
 
 }
