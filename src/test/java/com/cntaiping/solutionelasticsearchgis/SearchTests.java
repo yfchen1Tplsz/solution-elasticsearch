@@ -117,6 +117,22 @@ public class SearchTests {
         List<SearchHit<PolicyEntity>> policyEntities = searchService.sortSearchByRepository("NB");
         policyEntities.stream().forEach(System.out::println);
     }
+    @Test
+    public void pageSearchByOperations(){
+        List<SearchHit<PolicyEntity>> policyEntities = searchService.pageSearchByOperations("policyStatus","NB",0,10);
+        policyEntities.stream().forEach(System.out::println);
+    }
+    @Test
+    public void pageSearchByRepository(){
+        List<PolicyEntity> policyEntities = searchService.pageSearchByRepository("NB",0,3);
+        policyEntities.stream().forEach(System.out::println);
+    }
+
+    @Test
+    public void highlightByRepository(){
+        List<SearchHit<PolicyEntity>> policyEntities = searchService.highlightByRepository("Heavy","Mr");
+        policyEntities.stream().forEach(System.out::println);
+    }
 
 
 }

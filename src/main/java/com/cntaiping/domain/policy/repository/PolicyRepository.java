@@ -1,6 +1,10 @@
 package com.cntaiping.domain.policy.repository;
 
 import com.cntaiping.domain.policy.entity.PolicyEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.annotations.Highlight;
+import org.springframework.data.elasticsearch.annotations.HighlightField;
 import org.springframework.data.elasticsearch.annotations.Query;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -18,6 +22,8 @@ public interface PolicyRepository extends ElasticsearchRepository<PolicyEntity, 
     List<PolicyEntity> findByProductName(String searchValue);
 
     List<PolicyEntity> findByPolicyStatus(String searchValue);
+    Page<PolicyEntity> findByPolicyStatus(String searchValue, Pageable page);
+
 
     List<PolicyEntity> findByPolicyAmountLessThanAndPolicyAmountGreaterThanEqual(Double min, Double max);
 
@@ -30,4 +36,9 @@ public interface PolicyRepository extends ElasticsearchRepository<PolicyEntity, 
 
     SearchHits<PolicyEntity> findByPolicyStatusOrderByPolicyAmountDesc(String policyStatus);
 
+    @Highlight(fields = {
+            @HighlightField(name = "productName"),
+            @HighlightField(name = "policyOwnerName")
+    })
+    SearchHits<PolicyEntity> findByProductNameOrPolicyOwnerName(String productName, String policyOwner);
 }

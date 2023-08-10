@@ -9,6 +9,8 @@ import com.cntaiping.domain.policy.mapper.PolicyMapper;
 import com.cntaiping.domain.policy.repository.PolicyRepository;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -344,5 +346,38 @@ public class SearchService {
         SearchHits<PolicyEntity> searchHits = policyRepository.findByPolicyStatusOrderByPolicyAmountDesc(policyStatus);
         return searchHits.getSearchHits();
     }
+
+    public List<SearchHit<PolicyEntity>> pageSearchByOperations(String termField,String termValue,Integer page,Integer pageSize){
+//        Integer from = (page-1)*pageSize;
+        Query query = NativeQuery.builder()
+                .withQuery(q->q
+                        .term(t->t
+                                .field(termField)
+                                .value(termValue)
+                        )
+                )
+                .withSort(s->s
+                        .field(f->f
+                                .field("policyAmount")
+                                .order(SortOrder.Desc)
+                        )
+                )
+                .build().setPageable(Pageable.ofSize(pageSize).withPage(page));
+        SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(query, PolicyEntity.class);
+        //解析
+        return searchHits.getSearchHits();
+    }
+
+    public List<PolicyEntity> pageSearchByRepository(String termValue,Integer page,Integer pageSize){
+        Pageable pageable = Pageable.ofSize(pageSize).withPage(page);
+        Page<PolicyEntity> pages = policyRepository.findByPolicyStatus(termValue,pageable);
+        return pages.getContent();
+    }
+
+    public List<SearchHit<PolicyEntity>> highlightByRepository(String productName,String policyOwner){
+        SearchHits<PolicyEntity> searchHits = policyRepository.findByProductNameOrPolicyOwnerName(productName, policyOwner);
+        return searchHits.getSearchHits();
+    }
+
 
 }
