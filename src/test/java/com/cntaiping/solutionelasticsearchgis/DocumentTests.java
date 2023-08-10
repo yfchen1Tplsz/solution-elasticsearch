@@ -114,7 +114,7 @@ public class DocumentTests {
 
     @Test
     void batchInsertPolicyByRepository(){
-        List<PolicyEntity> policyEntities = FakeUtils.createFakePolicyList(19);
+        List<PolicyEntity> policyEntities = FakeUtils.createFakePolicyList(80);
         List<PolicyEntity> policyEntitiesReturn = documentService.batchInsertPolicyByRepository(policyEntities);
         System.out.println(Arrays.toString(policyEntitiesReturn.toArray()));
     }

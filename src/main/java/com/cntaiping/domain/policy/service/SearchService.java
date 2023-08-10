@@ -1,21 +1,18 @@
 package com.cntaiping.domain.policy.service;
 
-import co.elastic.clients.elasticsearch._types.GeoDistanceType;
+import co.elastic.clients.elasticsearch._types.DistanceUnit;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.TopLeftBottomRightGeoBounds;
-import co.elastic.clients.elasticsearch._types.query_dsl.FunctionScoreBuilders;
 import co.elastic.clients.json.JsonData;
 import com.cntaiping.domain.policy.entity.PolicyEntity;
 import com.cntaiping.domain.policy.mapper.PolicyMapper;
 import com.cntaiping.domain.policy.repository.PolicyRepository;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.client.elc.QueryBuilders;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.geo.GeoPoint;
 import org.springframework.data.elasticsearch.core.query.*;
 import org.springframework.data.elasticsearch.core.script.Script;
 import org.springframework.stereotype.Service;
@@ -106,7 +103,7 @@ public class SearchService {
         return searchHits.getSearchHits().stream().map(hit -> hit.getContent()).collect(Collectors.toList());
     }
 
-    // 多字段全文检索： multi_match by SpringDataEs 做不到的因为是根据方法名
+    // 多字段全文检索： multi_match by SpringDataEs 做不到的，因为是根据方法名
     public List<PolicyEntity> multiMatchSearchByRepository(List<String> fields, String searchValue) {
         return null;
     }
@@ -272,6 +269,79 @@ public class SearchService {
                 .build();
         SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(query, PolicyEntity.class);
         //解析
+        return searchHits.getSearchHits();
+    }
+
+    // 布尔复合查询 bool by Operations
+    public List<SearchHit<PolicyEntity>> boolSearchByOperations(String fieldStr,String searchValue,String shouldField,String shouldValue1,String shouldValue2){
+        Query query = NativeQuery.builder()
+                .withQuery(q->q
+                        .bool(b->b
+                                .must(m -> m
+                                        .match(t->t
+                                                .field(fieldStr)
+                                                .query(searchValue)
+                                        )
+                                )
+                                .should(s->s
+                                        .term(t->t
+                                                .field(shouldField)
+                                                .value(shouldValue1)
+                                        )
+                                )
+                                .should(s->s
+                                        .term(t->t
+                                                .field(shouldField)
+                                                .value(shouldValue2)
+                                        )
+                                )
+                        )
+                ).build();
+        SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(query, PolicyEntity.class);
+        //解析
+        return searchHits.getSearchHits();
+    }
+
+    // 布尔复合查询 bool by Repository 只需要使用And Or Not即可，但是无法实现很复杂的嵌套逻辑以及不参与算分的filter与
+    //略
+
+    //对搜索结果进行排序 sort by Operations
+    public List<SearchHit<PolicyEntity>> sortSearchByOperations(String termField,String termValue,String sortField,Double lat,Double lon){
+        Query query = NativeQuery.builder()
+               .withQuery(q->q
+                       .term(m->m
+                               .field(termField)
+                               .value(termValue)
+                       )
+                )
+                .withSort(s->s
+                        .geoDistance(g->g
+                                .field("location")
+                                .location(l->l
+                                        .latlon(ll->ll
+                                                .lat(lat)
+                                                .lon(lon)
+                                        )
+                                )
+                                .unit(DistanceUnit.Kilometers)
+                                .order(SortOrder.Asc)
+                        )
+                )
+                .withSort(s->s
+                        .field(f->f
+                                .field(sortField)
+                                .order(SortOrder.Desc)
+                        )
+                )
+                .build();
+        SearchHits<PolicyEntity> searchHits = elasticsearchOperations.search(query, PolicyEntity.class);
+        //解析
+        return searchHits.getSearchHits();
+    }
+
+    //对搜索结果进行排序 sort by Repository
+    public List<SearchHit<PolicyEntity>> sortSearchByRepository(String policyStatus){
+        SearchHits<PolicyEntity> searchHits = policyRepository.findByPolicyStatusOrderByPolicyAmountDesc(policyStatus);
         return searchHits.getSearchHits();
     }
 

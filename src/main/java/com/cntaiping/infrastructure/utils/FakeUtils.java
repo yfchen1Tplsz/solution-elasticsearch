@@ -24,11 +24,11 @@ public class FakeUtils {
         policyEntity.setPolicyOwnerName(faker.name().fullName());
         policyEntity.setProductName(faker.commerce().productName());
         policyEntity.setPolicyStatus(getRandomPolicyStatus());
-        policyEntity.setPolicyAmount(faker.random().nextDouble() * 1000);
-        policyEntity.setPolicyPremium(faker.random().nextDouble() * 100);
+        policyEntity.setPolicyAmount(faker.random().nextDouble() * 2000+1000);
+        policyEntity.setPolicyPremium(faker.random().nextDouble() * 200+100);
         policyEntity.setExpireDate(LocalDate.now().plusDays(faker.random().nextInt(300)));
         policyEntity.setEffectiveDate(LocalDate.now().minusDays(faker.random().nextInt(30)));
-        policyEntity.setRemark(faker.lorem().sentence());
+        policyEntity.setRemark(faker.lorem().sentence(5));
         Address address = faker.address();
         policyEntity.setLocation(new GeoPoint(Double.parseDouble(address.latitude()), Double.parseDouble(address.longitude())));
         return policyEntity;

@@ -27,7 +27,7 @@ public class SearchTests {
     }
 
     @Test
-    public void matchAllByRepositroy(){   //没有默认分页
+    public void matchAllByRepository(){   //没有默认分页
         List<PolicyEntity> policyEntities = searchService.matchAllByRepository();
         policyEntities.stream().forEach(System.out::println);
     }
@@ -104,6 +104,17 @@ public class SearchTests {
     @Test
     public void functionsScoreByOperations(){
         List<SearchHit<PolicyEntity>> policyEntities = searchService.functionsScoreByOperations("Awesome","NB");
+        policyEntities.stream().forEach(System.out::println);
+    }
+
+    @Test
+    public void sortSearchByOperations(){
+        List<SearchHit<PolicyEntity>> policyEntities = searchService.sortSearchByOperations("policyStatus","NB","policyAmount",-15.9,134.34);
+        policyEntities.stream().forEach(System.out::println);
+    }
+    @Test
+    public void sortSearchByRepository(){
+        List<SearchHit<PolicyEntity>> policyEntities = searchService.sortSearchByRepository("NB");
         policyEntities.stream().forEach(System.out::println);
     }
 
